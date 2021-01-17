@@ -31,9 +31,6 @@ os.kill(os.getpid(), 9)
 import os, time
 os.kill(os.getpid(), 9)
 
-from google.colab import drive
-drive.mount('/content/drive')
-
 from mlmodels import util
 print(util)
 
@@ -43,7 +40,7 @@ os.chdir("/content/drive/My Drive/Colab Notebooks/shared_session/timeseries_exam
 
 dirdrive = "/content/drive/My Drive/Colab Notebooks/shared_session/timeseries_example"
 
-pip install mxnet
+!pip install mxnet
 
 # Commented out IPython magic to ensure Python compatibility.
 # %matplotlib inline
@@ -59,6 +56,11 @@ from pathlib import Path
 
 
 
+from util_gluonts import (
+    
+gluonts_save_to_file
+
+)
 ########################
 single_pred_length = 28
 submission_prediction_length = single_pred_length * 2
@@ -150,39 +152,8 @@ dates = ["2011-01-29 00:00:00" for _ in range(len(sales_train_val))]
 #### Test Data
 test_target_values  = train_df.values.copy()
 
-def save_to_file(path="", data=None):
-    import os
-    print(f"saving time-series into {path}")
-    path_dir = os.path.dirname(path)
-    os.makedirs(path_dir, exist_ok=True)
-    with open(path, 'wb') as fp:
-        for d in data:
-            fp.write(json.dumps(d).encode("utf-8"))
-            fp.write("\n".encode('utf-8'))
-
-
-
-
-
-
-
-
-
-
-
 import json
-
-with open(gluonts_datafolder+'/metadata.json', 'w') as f:
-      d =  {"cardinality":cardinalities,
-                "freq":"D",
-                "prediction_length":prediction_length,
-
-               }
-      f.write(json.dumps(d)
-          )
-      
-
-      
+    
 train_file  = gluonts_datafolder+"/train/data.json"
 test_file =   gluonts_datafolder+"/test/data.json"
 
@@ -195,7 +166,18 @@ train_ds = [  {   FieldName.TARGET: target.tolist(),
     }
     for (target, start, fdr, fsc) in zip(  train_target_values, dates, train_cal_features_list, stat_cat  )
 ]
-save_to_file(train_file, train_ds)
+gluonts_save_to_file(train_file, train_ds)
+with open(gluonts_datafolder+'/metadata.json', 'w') as f:
+      d =  {"cardinality":cardinalities,
+                "freq":"D",
+                "prediction_length":prediction_length,
+
+               }
+      f.write(json.dumps(d)
+          )
+      
+
+  
 
 
 ################# Build testing set
@@ -206,7 +188,7 @@ test_ds = [  { FieldName.TARGET: target.tolist(),
     }
     for (target, start, fdr, fsc) in zip(test_target_values, dates, test_cal_features_list, stat_cat)
 ]
-save_to_file(test_file, test_ds)
+gluonts_save_to_file(test_file, test_ds)
 
 del train_ds,test_ds
 
@@ -216,12 +198,12 @@ df_dynamic.to_csv(data_folder+'/df_dynamic.csv',index=False)
 df_static.to_csv(data_folder+'/df_static.csv',index=False)
 df_timeseries.to_csv(data_folder+'/df_timeseries.csv',index=False)
 
-#@title
+
 df_dynamic    = pd.read_csv(data_folder+'/df_dynamic.csv')
 df_static     = pd.read_csv(data_folder+'/df_static.csv')
 df_timeseries = pd.read_csv(data_folder+'/df_timeseries.csv')
 
-#@title
+
 df_timseries.head(5)
 
 """
@@ -313,21 +295,6 @@ jpars={
 """
 
 
-
-# from gluonts.dataset.common import load_datasets, ListDataset
-# from gluonts.dataset.field_names import FieldName
-
-
-
-
-
-
-
-
-
-import imp
-imp.reload(module)
-
 """
 
 https://github.com/arita37/mlmodels/blob/dev/mlmodels/model_gluon/gluonts_model.py
@@ -370,11 +337,11 @@ TD  =load_datasets( metadata=dataset_path,
 
 #### Setup Model 
 
-#module         = module_load( model_uri)
+module         = module_load( model_uri)
 #model          = module.Model(model_pars, data_pars, compute_pars) 
-model=None
-module=None
-import gluonts_model as module
+#model=None
+#module=None
+#import gluonts_model as module
 
 model=module.Model(model_pars=model_pars, data_pars=data_pars, compute_pars=compute_pars)
 

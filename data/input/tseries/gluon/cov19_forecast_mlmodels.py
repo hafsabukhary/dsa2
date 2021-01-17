@@ -16,8 +16,6 @@ Original file is located at
 import os, time
 os.kill(os.getpid(), 9)
 
-from google.colab import drive
-drive.mount('/content/drive')
 
 !pip install mxnet 
 !pip install gluonts
@@ -199,9 +197,9 @@ for i in range(len(static_df)):
 
 df_timeries
 
-from util import (
+from util_gluonts import (
     
-gluonts_save_to_file, gluonts_create_dataset
+gluonts_save_to_file, gluonts_create_dataset, to_gluonts_json,gluonts_create_dataset
 
 )
 
@@ -212,7 +210,10 @@ gluonts_save_to_file, gluonts_create_dataset
 from gluonts.dataset.common import load_datasets, ListDataset
 from gluonts.dataset.field_names import FieldName
 
-
+'''
+################
+UPLOADED IN UTILS
+#################
 def gluonts_create_dataset(timeseries_list, start_dates_list, feat_dynamic_list=None,  feat_static_list=None, feat_static_real_list=None, freq="D" ) :
     feat_dynamic = True
     feat_static = True
@@ -251,18 +252,7 @@ def gluonts_create_dataset(timeseries_list, start_dates_list, feat_dynamic_list=
         ]
     return train_ds
 """
-
-from typing import Dict, List
-def to_gluonts_json(path:Path, data: List[Dict]):
-    import os
-    print(f"saving time-series into {path}")
-    path=os.path.join(path ,"dataa.json")
-    path_dir = os.path.dirname(path)
-    os.makedirs(path_dir, exist_ok=True)
-    with open(path, 'wb') as fp:
-        for d in data:
-            fp.write(json.dumps(d).encode("utf-8"))
-            fp.write("\n".encode('utf-8'))
+'''
 
 ### From csv to gluonts
 from gluonts.dataset.common import load_datasets, ListDataset
@@ -352,187 +342,6 @@ test_ds = [
 test_ds  = gluonts_create_dataset(test_target_values, start_date, feat_dynamic_list=None,  feat_static_list=stat_cat_features, feat_static_real_list=stat_real_features, freq="D" ) 
 to_gluonts_json(test_file, test_ds)
 
-def gluonts_to_pandas(dataset_path, data_type):
-  from gluonts.dataset.common import ListDataset,load_datasets  
-  from copy import deepcopy
-  all_targets = []
-  all_dynamic = []
-  all_static  = []
-  all_static_Real = []
-  start       = []
-  TD          = load_datasets(  metadata=dataset_path,
-                                  train=dataset_path / "train", test=dataset_path / "test")
-  
-  ### json iterator  Why Test only   ###############
-  if data_type == "test"  : TD_current = deepcopy( TD.test )
-  if data_type == "train" : TD_current = deepcopy( TD.train )
-
-
-  instance_iter =next(iter(TD_current))
-  df_static_real = None
-  df_dynamic = None
-  df_static = None
-  df_static_real = None
-
-  #### load decode pars ############################
-  decode_pars = json.load(open(dataset_path / "decode.json", mode='r'),object_hook=lambda d: {int(k) 
-                          if k.lstrip('-').isdigit() else k: v for k, v in d.items()})
-  print(decode_pars)
-  df_dynamic_labels   = decode_pars["df_dynamic_labels"]
-  df_dynamic_cols     = decode_pars["df_dynamic_cols"]
-  df_static_labels    = decode_pars["df_static_labels"]
-  df_static_cols      = decode_pars["df_static_cols"]
-  df_static_real_cols = decode_pars["df_static_real_cols"]
-
-  df_timeseries_cols  = decode_pars["df_timeseries_cols"]
-  df_timeseries_dtype = decode_pars["df_timeseries_dtype"]
-  df_dynamic_dtype    = decode_pars["df_dynamic_dtype"]
-  df_static_dtype     = decode_pars["df_static_dtype"]
-  df_static_real_dtype =decode_pars["df_static_real_dtype"]
-
-  #################################################
-  if "feat_dynamic_real" in instance_iter:
-    dynamic_features = np.transpose(instance_iter["feat_dynamic_real"])
-  else:
-    dynamic_features = None
-
-
-  for items in TD_current :
-    #print(items)
-    target=np.transpose(items["target"]).tolist() 
-    if "feat_static_cat" in items:
-      static= np.transpose(items["feat_static_cat"]).tolist()
-
-    if "feat_static_real" in items:
-      static_real = items["feat_static_real"]
-      all_static_Real.append(static_real)
-    
-    all_static.append(static)
-    all_targets.append(target)
-
-  
-
-  df_timeseries =pd.DataFrame(all_targets)
-  del all_targets
-
-  ############# decode df_static real ############################
-  if len(all_static_Real)>0:
-    df_static_real=pd.DataFrame(all_static_Real)
-    df_static_real     = df_static_real.astype(df_static_real_dtype) 
-
-  ################ decode  df_dynamic #####   
-  if dynamic_features:
-    df_dynamic =pd.DataFrame(dynamic_features)
-    if  df_dynamic_labels is not None:
-      for key in  df_dynamic_labels:
-        col = key
-        labels= df_dynamic_labels[key]
-        for l in labels:
-          v = labels[l]
-          df_dynamic[col]=df_dynamic[col].apply(lambda x: v if x == l else x)
-
-    for col in df_dynamic.columns:       
-      df_dynamic[col]=df_dynamic[col].apply(lambda x: np.NAN if x == -l else x)  
-    
-    if  df_dynamic_cols is not None:
-      df_dynamic.rename(columns =  df_dynamic_cols, inplace = True) 
-    df_dynamic    = df_dynamic.astype(df_dynamic_dtype)
-  
-  if len(all_static)>0:  
-    df_static =pd.DataFrame(all_static)
-
-
-  ##### decode df_timeseries#############
-  if  df_timeseries_cols is not None:
-    df_timeseries.rename(columns = df_timeseries_cols , inplace = True) 
-  df_timeseries = df_timeseries.astype(df_timeseries_dtype)
-  
-
-  ####### decode df staic################
-  if not df_static.empty:
-    if df_static_labels  is not None:
-        for key in df_static_labels: 
-          d =  df_static_labels[key]
-          df_static[key] = df_static[key].map(d)
-    if  df_static_cols is not None:
-        df_static.rename(columns = df_static_cols, inplace = True) 
-    df_static     = df_static.astype(df_static_dtype)    
- 
-
-  ########## df static real ###########
-
-  
-  
-  #####################################
-  return df_timeseries,df_dynamic,df_static,df_static_real
-
-
-
-def pd_difference(df1, df2,is_real=False):
-  """Identify differences between two pandas DataFrames
-    
-  """
-  if (df1.columns != df2.columns).any(0):
-    print("DataFrame column names are different")
-    return None
- 
-  if any(df1.dtypes != df2.dtypes):
-        print("Data Types are different, trying to convert")
-        df2 = df2.astype(df1.dtypes)
-        
-  if df1.equals(df2):
-        print("Exactly Same")
-        return None
-  else:
-        df1=df1.fillna(-1)
-        df2=df2.fillna(-1)
-        if is_real:
-          if not (np.abs(df1 - df2) >9.62340710e2).any().values:
-            print("Real Dataframes are equal")
-            return None 
-          else: 
-            diff_mask=(np.abs(df1 - df2) >9.62340710e2)
-        else:
-          # need to account for np.nan != np.nan returning True
-          diff_mask = (df1 != df2) & ~(df1.isnull() & df2.isnull())
-        ne_stacked = diff_mask.stack()
-        changed = ne_stacked[ne_stacked]
-        changed.index.names = ['id', 'col']
-        difference_locations = np.where(diff_mask)
-        changed_from = df1.values[difference_locations]
-        changed_to = df2.values[difference_locations]
-        return pd.DataFrame({'from': changed_from, 'to': changed_to},
-                            index=changed.index)
-
-
-def gluonts_json_check() :
-  ##### Check Code
-  from pathlib import Path
-
-  dataset_path = Path(gluonts_data)
-  df_timeseries1,df_dynamic1,df_static1,df_static_real1 = gluonts_to_pandas(dataset_path, data_type="test")
-  #print('###sum of df_static_real ####' )
-  #print(static_df-df_static_real1.sum())
-  print(df_timeseries1.shape,df_static_real1.shape  )
-
-  print('### matching  df_timeseries ####' )
-  print(pd_difference(train_df,df_timeseries1))
-
-  print('### matching  df_static_real ####' )
-  print(pd_difference(static_df,df_static_real1,is_real=True))
-
-
-gluonts_json_check()
-
-for col in df_static_real1.columns:
-  print(df_static_real1[col].dtype)
-  
-for col in static_df.columns:
-  print(static_df[col].dtype)
-
-df_static1.dtypes[0]
-
-static_df
 
 from gluonts.dataset.common import ListDataset,load_datasets
 ### dataset loaded once wil be deleted
@@ -661,11 +470,6 @@ jpars={
 }
 
 json.dump(jpars,  open(json_path, mode="w") )
-
-import imp
-#import gluonts_model as module
-imp.reload(module)
-
 jpars=None
 
 #### Model Parameters
@@ -676,15 +480,11 @@ for x in [ 'model_pars', 'data_pars', 'compute_pars', 'out_pars' ] :
 print( model_pars, data_pars, compute_pars, out_pars)
 
 #### Setup Model 
-#module         = module_load( model_uri)
-#model          = module.Model(model_pars, data_pars, compute_pars) 
-module=None
-import gluonts_model as module
+module         = module_load( model_uri)
 
 model = module.Model(model_pars=model_pars, data_pars=data_pars, compute_pars=compute_pars)
 
 model = module.fit(model=model,data_pars= data_pars,compute_pars= compute_pars, out_pars=out_pars) 
-model
 
 
 

@@ -16,8 +16,6 @@ print(time() - t0, flush=True)
 import os, time
 os.kill(os.getpid(), 9)
 
-from google.colab import drive
-drive.mount('/content/drive')
 
 from mlmodels import util
 print(util)
@@ -57,16 +55,11 @@ dir_inter :  intermediate data
 
 
 
+from util_gluonts import (
+    
+gluonts_save_to_file
 
-
-
-
-
-
-!ls
-
-from mlmodels.preprocess.timeseries import save_to_file
-print(save_to_file)
+)
 
 
 
@@ -131,6 +124,17 @@ dataset_path  = Path( gluonts_datafolder+"/m4_daily" )
 
 
 
+
+gluonts_save_to_file(train_file,
+      [{ "start": "1750-01-01 00:00:00",
+         "target": list(target),
+         "feat_static_cat": [cat]
+  }
+          for cat, target in enumerate(train_target_values)
+      ],
+  )
+
+
 #### Output Metadata JSON
 with open(meta_file, 'w') as f:
       f.write( json.dumps(
@@ -145,17 +149,6 @@ with open(meta_file, 'w') as f:
 #### Output JSON  ##############################################################
 train_target_values = [ts[~np.isnan(ts)] for ts in train_df.values]
 print(train_target_values[:3])
-
-save_to_file(train_file,
-      [{ "start": "1750-01-01 00:00:00",
-         "target": list(target),
-         "feat_static_cat": [cat]
-  }
-          for cat, target in enumerate(train_target_values)
-      ],
-  )
-
-
 #### Output JSON  ##############################################################
 test_target_values = [
         np.hstack([train_ts, test_ts])
@@ -163,7 +156,7 @@ test_target_values = [
     ]
 print(test_target_values[:3])
 
-save_to_file(test_file,
+gluonts_save_to_file(test_file,
     [
       {
     "start": "1750-01-01 00:00:00",
@@ -204,7 +197,7 @@ from pprint import pprint as print2
 
 
 #### Model URI and Config JSON
-#model_uri   = "model_keras.gluonts_model"
+model_uri   = "model_keras.gluonts_model"
 #config_path = path_norm( 'model_keras/ardmn.json'  )
 #config_mode = "test"  ### test/prod
 
@@ -313,14 +306,8 @@ print( model_pars, data_pars, compute_pars, out_pars)
 
 #### Setup Model from repo
 from mlmodels.models import module_load
-model_uri="model_gluon.gluonts_model"
-#module         = module_load( model_uri)
-#model          = module.Model(model_pars, data_pars, compute_pars) 
-
-
-#### Local load model
-import gluonts_model as module
-model_uri="gluonts_model"
+#import gluonts_model as module
+module         = module_load( model_uri)
 # import imp
 # imp.reload(module)
 
@@ -339,13 +326,6 @@ print(metrics_val)
 
 
 
-
-
-
-
-
-!ls
-
 module.plot_prob_forecasts(y_pred)
 
 
@@ -359,9 +339,6 @@ module.save(model, save_pars = { 'path': out_pars['path'] +"/model/"})
 
 model2 = module.load(load_pars = { 'path': out_pars['path'] +"/model/"})
 
-
-
-!ls 'kaggle_data'
 
 
 
